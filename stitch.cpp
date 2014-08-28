@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <list>
 
+using namespace MagickCore;
+
 class Frame {
     std::string name;
     int x;

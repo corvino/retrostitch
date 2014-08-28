@@ -1,10 +1,13 @@
-all: chopcrop stitch text
+all: bin/chopcrop bin/stitch bin/text
 
-chopcrop: chopcrop.cpp
-	g++ `/opt/local/bin/Magick++-config --cppflags --cxxflags --ldflags --libs` chopcrop.cpp -o chopcrop
+bin/chopcrop: chopcrop.cpp bin
+	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` chopcrop.cpp -o bin/chopcrop
 
-stitch : stitch.cpp
-	g++ `/opt/local/bin/Magick++-config --cppflags --cxxflags --ldflags --libs` stitch.cpp -o stitch
+bin/stitch : stitch.cpp bin
+	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` stitch.cpp -o bin/stitch
 
-text: text.cpp
-	g++ `/opt/local/bin/Magick++-config --cppflags --cxxflags --ldflags --libs` text.cpp -o text
+bin/text: text.cpp bin
+	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` text.cpp -o bin/text
+
+bin:
+	mkdir bin
