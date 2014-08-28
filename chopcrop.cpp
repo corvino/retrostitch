@@ -4,7 +4,7 @@ int main() {
     int cropX;
     int cropY;
 
-    Magick::Image frame("test/0x1.png");
+    Magick::Image frame("test-images/0x1.png");
 
     // We see two different image sizes, based on whether the windows
     // was active or not when the screenshot was taken.  Easy enough
@@ -29,7 +29,7 @@ int main() {
 
     frame.chop(cropGeo);
     frame.crop(chopGeo);
-    frame.write("chop-crop.png");
+    frame.write("output/chopcrop.png");
 
     return 0;
 }

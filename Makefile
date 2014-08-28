@@ -1,13 +1,22 @@
-all: bin/chopcrop bin/stitch bin/text
+all: directories bin/stitch bin/chopcrop bin/text
 
-bin/chopcrop: chopcrop.cpp bin
-	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` chopcrop.cpp -o bin/chopcrop
+.PHONY: clean
+.PHONY: directories
 
-bin/stitch : stitch.cpp bin
+directories:
+	mkdir -p bin
+	mkdir -p output
+
+clean:
+	rm -rf bin
+	rm -rf output
+
+bin/stitch : stitch.cpp
 	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` stitch.cpp -o bin/stitch
 
-bin/text: text.cpp bin
+bin/chopcrop: chopcrop.cpp
+	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` chopcrop.cpp -o bin/chopcrop
+
+bin/text: text.cpp
 	g++ `Magick++-config --cppflags --cxxflags --ldflags --libs` text.cpp -o bin/text
 
-bin:
-	mkdir bin

@@ -1,7 +1,10 @@
-./stitch ~/Desktop/below\ the\ root/world/ ~/Desktop/below\ the\ root/world.png
-./stitch ~/Desktop/below\ the\ root/indoors/ ~/Desktop/below\ the\ root/indoors.png
-./stitch ~/Desktop/below\ the\ root/below\ the\ root/entrance/ ~/Desktop/below\ the\ root/btr-entrance.png
-./stitch ~/Desktop/below\ the\ root/below\ the\ root/main/ ~/Desktop/below\ the\ root/btr-main.png
-./stitch ~/Desktop/below\ the\ root/below\ the\ root/1/ ~/Desktop/below\ the\ root/btr-1.png
-./stitch ~/Desktop/below\ the\ root/below\ the\ root/2/ ~/Desktop/below\ the\ root/btr-2.png
-./stitch ~/Desktop/below\ the\ root/below\ the\ root/3/ ~/Desktop/below\ the\ root/btr-3.png
+#! /usr/bin/env bash
+
+bin/stitch test-images/ output/test-stitch.png
+bin/stitch blr/world/ output/world.png
+bin/stitch blr/indoors/ output/indoors.png
+bin/stitch blr/entrance/ output/btr-entrance.png
+bin/stitch blr/main/ output/btr-main.png
+bin/stitch blr/1/ output/btr-1.png
+bin/stitch blr/2/ output/btr-2.png
+bin/stitch blr/3/ output/btr-3.png
