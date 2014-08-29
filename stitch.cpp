@@ -43,12 +43,11 @@ int Frame::getY() {
 int main(int argc, char *argv[]) {
     DIR *dp;
     struct dirent *dirp;
-    Frame *frame;
     int i;
     int x;
     int y;
-    std::list<Frame*> frames;
-    std::list<Frame*>::iterator it;
+    std::list<Frame> frames;
+    std::list<Frame>::iterator it;
     char charBuff[255];
 
     Magick::Geometry cropGeo(72, 79);
@@ -70,23 +69,21 @@ int main(int argc, char *argv[]) {
     std::cout << "Stitching '" << argv[1] << "' to '" << argv[2] << "'." << std::endl;
 
     while ((dirp = readdir(dp)) != NULL) {
-        frame = new Frame(dirp->d_name);
+        Frame frame = Frame(dirp->d_name);
 
-        x = frame->getX();
-        y = frame->getY();
+        x = frame.getX();
+        y = frame.getY();
 
         if (-1 < x && -1 < y) {
             frames.push_back(frame);
 
             if (maxX < x) {
-                maxX = frame->getX();
+                maxX = frame.getX();
             }
 
             if (maxY < y) {
-                maxY = frame->getY();
+                maxY = frame.getY();
             }
-        } else {
-            delete frame;
         }
     }
 
@@ -107,8 +104,8 @@ int main(int argc, char *argv[]) {
     Magick::Image target(Magick::Geometry(xPixels, yPixels), Magick::Color(MaxRGB, MaxRGB, MaxRGB, 0));
 
     for(it = frames.begin(); it != frames.end(); it++) {
-        Magick::Image frameImage(argv[1] + (*it)->getName());
-        std::cout << (*it)->getX() << "," << (*it)->getY() << " (" << frameImage.columns() << "," << frameImage.rows() << "): " << "x=" << 321 * (*it)->getX() + yCoordinatePixels + 1 << "; y=" << 161 * (maxY - (*it)->getY()) + xCoordinatePixels + 1 << std::endl;
+        Magick::Image frameImage(argv[1] + it->getName());
+        std::cout << it->getX() << "," << it->getY() << " (" << frameImage.columns() << "," << frameImage.rows() << "): " << "x=" << 321 * it->getX() + yCoordinatePixels + 1 << "; y=" << 161 * (maxY - it->getY()) + xCoordinatePixels + 1 << std::endl;
 
         // We can end up with different size images.  Set the appropriate cropGeo.
 
@@ -122,7 +119,7 @@ int main(int argc, char *argv[]) {
 
         frameImage.chop(cropGeo);
         frameImage.crop(chopGeo);
-        target.composite(frameImage, 321 * (*it)->getX() + yCoordinatePixels + 1, 161 * (maxY - (*it)->getY()) + xCoordinatePixels + 1);
+        target.composite(frameImage, 321 * it->getX() + yCoordinatePixels + 1, 161 * (maxY - it->getY()) + xCoordinatePixels + 1);
     }
 
     target.strokeColor(Magick::Color("red"));
