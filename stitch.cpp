@@ -1,170 +1,200 @@
-#include <Magick++.h>
 #include <iostream>
-#include <dirent.h>
-#include <stdlib.h>
+#include <sstream>
 #include <list>
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <dirent.h>
+
+#include <Magick++.h>
 
 using namespace MagickCore;
 
-class Frame {
-    std::string name;
-    int x;
-    int y;
-public:
-    Frame(char *s);
-    std::string getName();
-    int getX();
-    int getY();
+static const int X_COORDINATE_PIXELS = 20;
+static const int Y_COORDINATE_PIXELS = 20;
+
+static const int FRAME_WIDTH = 321;
+static const int FRAME_HEIGHT = 161;
+
+struct Grid {
+    int minX;
+    int maxX;
+    int minY;
+    int maxY;
+
+    Grid(int minX, int maxX, int minY, int maxY) : minX(minX), maxX(maxX), minY(minY), maxY(maxY) {};
+
+    bool valid() { return INT_MAX != minX && INT_MIN != maxX && INT_MAX != minY && INT_MIN != maxY; };
 };
 
-Frame::Frame(char *s) : name(s), x(-1), y(-1) {
-    size_t divider = name.find("x");
-
-    if (divider!=std::string::npos) {
-        x = atoi(name.c_str());
-        y = atoi(name.substr(divider + 1).c_str());
-    }
-
-    // std::cout << name << " ; x = " << x << " ; y = " << y << std::endl;
-}
-
-std::string Frame::getName() {
-    return name;
-}
-
-int Frame::getX() {
-    return x;
-}
-
-int Frame::getY() {
-    return y;
-}
-
-int main(int argc, char *argv[]) {
+/*
+ * Scan directory for images with a "x" separator; find the minimum and
+ * maximum x and y values based on files present in directory.
+ */
+Grid readGrid(char *screensDir) {
     DIR *dp;
     struct dirent *dirp;
-    int i;
-    int x;
-    int y;
-    std::list<Frame> frames;
-    std::list<Frame>::iterator it;
-    char charBuff[255];
 
-    Magick::Geometry cropGeo(72, 79);
-    Magick::Geometry chopGeo(320, 160);
-    int maxX = -1;
-    int maxY = -1;
+    int minX = INT_MAX;
+    int minY = INT_MAX;
+    int maxX = INT_MIN;
+    int maxY = INT_MIN;
 
-
-    if (3 != argc) {
-        std::cout << "usage: stitch source-directory target-file" << std::endl;
-        exit(1);
-    }
-
-    if ((dp = opendir(argv[1])) == NULL) {
+    if ((dp = opendir(screensDir)) == NULL) {
         std::cout << "can't open screens directory";
-        exit(1);
+        exit(-1);
     };
 
-    std::cout << "Stitching '" << argv[1] << "' to '" << argv[2] << "'." << std::endl;
-
     while ((dirp = readdir(dp)) != NULL) {
-        Frame frame = Frame(dirp->d_name);
+        int x;
+        int y;
 
-        x = frame.getX();
-        y = frame.getY();
+        std::string name = dirp->d_name;
+        size_t divider = name.find("x");
+        size_t extension = name.find(".");
 
-        if (-1 < x && -1 < y) {
-            frames.push_back(frame);
+        if (divider != std::string::npos && extension != std::string::npos) {
+            x = atoi(name.c_str());
+            y = atoi(name.substr(divider + 1, extension - divider).c_str());
 
-            if (maxX < x) {
-                maxX = frame.getX();
-            }
-
-            if (maxY < y) {
-                maxY = frame.getY();
-            }
+            minX = std::min(x, minX);
+            minY = std::min(y, minY);
+            maxX = std::max(x, maxX);
+            maxY = std::max(y, maxY);
         }
     }
 
     closedir(dp);
 
-    //int xPixels = (maxX + 1) * 321 - 2;
-    //int yPixels = (maxY + 1) * 161 - 2;
+    return Grid(minX, maxX, minY, maxY);
+}
 
-    int xCoordinatePixels = 20;
-    int yCoordinatePixels = 20;
-    int xPixels = (maxX + 1) * 321 + 2 * yCoordinatePixels + 1;
-    int yPixels = (maxY + 1) * 161 + 2 * xCoordinatePixels + 1;
-
-    std::cout << frames.size() << " total frames." << std::endl;
-    std::cout << maxX + 1 << " frame width; xPixels: " << xPixels << std::endl;
-    std::cout << maxY + 1 << " frame height; yPixels: " << yPixels << std::endl;
-
-    Magick::Image target(Magick::Geometry(xPixels, yPixels), Magick::Color(MaxRGB, MaxRGB, MaxRGB, 0));
-
-    for(it = frames.begin(); it != frames.end(); it++) {
-        Magick::Image frameImage(argv[1] + it->getName());
-        std::cout << it->getX() << "," << it->getY() << " (" << frameImage.columns() << "," << frameImage.rows() << "): " << "x=" << 321 * it->getX() + yCoordinatePixels + 1 << "; y=" << 161 * (maxY - it->getY()) + xCoordinatePixels + 1 << std::endl;
-
-        // We can end up with different size images.  Set the appropriate cropGeo.
-
-        if (464 == frameImage.columns() && 366 == frameImage.rows()) {
-            cropGeo.width(72);
-            cropGeo.height(79);
-        } else if (424 == frameImage.columns() && 326 == frameImage.rows()) {
-            cropGeo.width(52);
-            cropGeo.height(64);
-        }
-
-        frameImage.chop(cropGeo);
-        frameImage.crop(chopGeo);
-        target.composite(frameImage, 321 * it->getX() + yCoordinatePixels + 1, 161 * (maxY - it->getY()) + xCoordinatePixels + 1);
-    }
-
+void drawTemplate(Grid grid, Magick::Image &target, int xPixels, int yPixels) {
     target.strokeColor(Magick::Color("red"));
     target.fillColor(Magick::Color(0, 0, 0, MaxRGB));
     target.strokeWidth(1.0);
 
     // Draw the lines separating frames.
 
-    for (i = 0; i <= maxX + 1; i++) {
-        int linePixel = i * 321 + yCoordinatePixels;
+    for (int i = 0; i <= grid.maxX - grid.minX + 2; i++) {
+        int linePixel = i * FRAME_WIDTH + Y_COORDINATE_PIXELS;
         target.draw(Magick::DrawableLine(linePixel, 0, linePixel, yPixels));
     }
 
-    for (i = 0; i <= maxY + 1; i++) {
-        int linePixel = i * 161 + xCoordinatePixels;
+    for (int i = 0; i <= grid.maxY - grid.minY + 2; i++) {
+        int linePixel = i * FRAME_HEIGHT + X_COORDINATE_PIXELS;
         target.draw(Magick::DrawableLine(0, linePixel, xPixels, linePixel));
     }
 
     // Draw the coordinate boxes.
 
-    for (i = 0; i <= maxX; i++) {
-        Magick::Image coordinateFrame(Magick::Geometry(320, xCoordinatePixels), Magick::Color("gray"));
-
-        sprintf(charBuff, "%d", i);
-
-        coordinateFrame.font("-*-helvetica-medium-r-normal-*-*-120-*-*-*-*-iso8859-1");
-        coordinateFrame.annotate(charBuff, Magick::CenterGravity);
-
-        target.composite(coordinateFrame, i * 321 + yCoordinatePixels + 1, 0, Magick::OverCompositeOp);
-        target.composite(coordinateFrame, i * 321 + yCoordinatePixels + 1, yPixels - xCoordinatePixels, Magick::OverCompositeOp);
-    }
-
-    for (i = 0; i <= maxY; i++) {
-        Magick::Image coordinateFrame(Magick::Geometry(yCoordinatePixels, 160), Magick::Color("gray"));
-
-        sprintf(charBuff, "%d", maxY - i);
+    for (int i = grid.minX; i <= grid.maxX; i++) {
+        Magick::Image coordinateFrame(Magick::Geometry(320, X_COORDINATE_PIXELS), Magick::Color("gray"));
+        std::ostringstream s;
+        s << i;
 
         coordinateFrame.font("-*-helvetica-medium-r-normal-*-*-120-*-*-*-*-iso8859-1");
-        coordinateFrame.annotate(charBuff, Magick::CenterGravity);
+        coordinateFrame.annotate(s.str(), Magick::CenterGravity);
 
-        target.composite(coordinateFrame, 0, i * 161 + xCoordinatePixels + 1, Magick::OverCompositeOp);
-        target.composite(coordinateFrame, xPixels - yCoordinatePixels, i * 161 + xCoordinatePixels + 1, Magick::OverCompositeOp);
+        target.composite(coordinateFrame, (i - grid.minX) * FRAME_WIDTH + Y_COORDINATE_PIXELS + 1, 0, Magick::OverCompositeOp);
+        target.composite(coordinateFrame, (i - grid.minX) * FRAME_WIDTH + Y_COORDINATE_PIXELS + 1, yPixels - X_COORDINATE_PIXELS, Magick::OverCompositeOp);
     }
+
+    for (int i = grid.minY; i <= grid.maxY; i++) {
+        Magick::Image coordinateFrame(Magick::Geometry(Y_COORDINATE_PIXELS, 160), Magick::Color("gray"));
+        std::ostringstream s;
+        s << i;
+
+        std::cout << "y; i = : " << i << " s: " << s << "!!!!\n";
+        coordinateFrame.font("-*-helvetica-medium-r-normal-*-*-120-*-*-*-*-iso8859-1");
+        coordinateFrame.annotate(s.str(), Magick::CenterGravity);
+
+        target.composite(coordinateFrame, 0, (grid.maxY - i) * FRAME_HEIGHT + X_COORDINATE_PIXELS + 1, Magick::OverCompositeOp);
+        target.composite(coordinateFrame, xPixels - Y_COORDINATE_PIXELS, (grid.maxY - i) * FRAME_HEIGHT + X_COORDINATE_PIXELS + 1, Magick::OverCompositeOp);
+    }
+}
+
+/*
+ * Crop off border surrounding frame.
+ */
+void cropFrame(Magick::Image &frame) {
+    Magick::Geometry cropGeo(72, 79);
+    Magick::Geometry chopGeo(320, 160);
+
+    // We can end up with different size images.  Set the appropriate
+    // cropGeo.
+
+    if (464 == frame.columns() && 366 == frame.rows()) {
+        cropGeo.width(72);
+        cropGeo.height(79);
+    } else if (424 == frame.columns() && 326 == frame.rows()) {
+        cropGeo.width(52);
+        cropGeo.height(64);
+    }
+
+    frame.chop(cropGeo);
+    frame.crop(chopGeo);
+}
+
+void drawFrame(Grid grid, Magick::Image &target, int x, int y, char *directory) {
+    std::ostringstream s;
+    s << directory << x << "x" << y << ".png";
+    std::string frameName(s.str());
+
+    if (access(frameName.c_str(), R_OK) != -1) {
+        Magick::Image frameImage(frameName);
+
+        std::cout << x << "," << y << " ("
+                  << frameImage.columns() << "," << frameImage.rows() << "): "
+                  << "x=" << FRAME_WIDTH * x + Y_COORDINATE_PIXELS + 1
+                  << "; y=" << FRAME_HEIGHT * (grid.maxY - y) + X_COORDINATE_PIXELS + 1 << std::endl;
+
+        cropFrame(frameImage);
+        target.composite(frameImage, FRAME_WIDTH * (x - grid.minX) + Y_COORDINATE_PIXELS + 1, FRAME_HEIGHT * (grid.maxY - y) + X_COORDINATE_PIXELS + 1);
+    } else {
+        Magick::Color color("black");
+
+        if (18 == x && -3 == y) {
+            color = Magick::Color(0.33 * MaxRGB, 0.52 * MaxRGB, 0.98 * MaxRGB);
+        } else if (y < 0) {
+            color = Magick::Color(0.27 * MaxRGB, 0.27 * MaxRGB, 0.27 * MaxRGB);
+        }
+
+        Magick::Image frameImage(Magick::Geometry(FRAME_WIDTH, FRAME_HEIGHT), color);
+        target.composite(frameImage, FRAME_WIDTH * (x - grid.minX) + Y_COORDINATE_PIXELS + 1, FRAME_HEIGHT * (grid.maxY - y) + X_COORDINATE_PIXELS + 1);
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (3 != argc) {
+        std::cout << "usage: stitch source-directory target-file" << std::endl;
+        exit(-1);
+    }
+
+    Grid grid = readGrid(argv[1]);
+    std::cout << "Grid spans x: " << grid.minX << "->" << grid.maxX << " y: " << grid.minY << "->" << grid.maxY << std::endl;
+
+    if (!grid.valid()) {
+        std::cout << "File names did not determine a grid!" << std::endl;
+        exit(-1);
+    }
+
+    int xPixels = (grid.maxX - grid.minX + 1) * FRAME_WIDTH + 2 * Y_COORDINATE_PIXELS + 1;
+    int yPixels = (grid.maxY - grid.minY + 1) * FRAME_HEIGHT + 2 * X_COORDINATE_PIXELS + 1;
+
+    std::cout << grid.maxX - grid.minX + 1 << " frame width; xPixels: " << xPixels << std::endl;
+    std::cout << grid.maxY - grid.minY + 1 << " frame height; yPixels: " << yPixels << std::endl;
+
+    Magick::Image target(Magick::Geometry(xPixels, yPixels), Magick::Color(MaxRGB, MaxRGB, MaxRGB, 0));
+
+    for (int x = grid.minX; x <= grid.maxX; x++) {
+        for (int y = grid.minY; y <= grid.maxY; y++) {
+            drawFrame(grid, target, x, y, argv[1]);
+        }
+    }
+
+    drawTemplate(grid, target, xPixels, yPixels);
 
     target.write(argv[2]);
-
-    exit(0);
+    return(0);
 }
