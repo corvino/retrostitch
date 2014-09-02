@@ -1,5 +1,7 @@
 #! /usr/bin/env bash
 
+bin/stitch blr/main/ output/main.png
+
 bin/stitch blr/overworld-main/ output/overworld-main.png
 bin/stitch blr/overworld-indoors/ output/overworld-indoors.png
 
